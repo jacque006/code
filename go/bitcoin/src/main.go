@@ -1,15 +1,20 @@
 package main
 
 import (
-	"golang.org/x/net/websocket"
 	"fmt"
 	"log"
 	"encoding/json"
+	"golang.org/x/net/websocket"
+	"github.com/goinggo/tracelog"
 )
 
+var TAG = "main"
+
+// Represents a transaction we will write to the graph database.
 type Transaction struct {
 	hash string
 	time int32
+	// key: address, value: value
 	inputs map[string]int64
 	outputs map[string]int64
 }
@@ -19,7 +24,7 @@ func SatoshisToBTC(value int64) float64 {
 }
 
 func (t Transaction) String() string {
-	s := ""
+	s := "\n\n"
 	s += fmt.Sprintf("Transaction Hash: %s\n", t.hash)
 	s += fmt.Sprintf("Time: %v\n", t.time)
 	s += " Inputs:\n"
@@ -34,6 +39,8 @@ func (t Transaction) String() string {
 	return s
 }
 
+// This is pretty hacky, but it works.
+// Look to optimize this in the future, especially when we need more data.
 func TransactionFromJSON(b []byte) Transaction {	
 	//fmt.Println(string(b))
 	
@@ -89,6 +96,8 @@ func TransactionFromJSON(b []byte) Transaction {
 	return Transaction{hash, time, inputMap, outputMap} //, inputs, outputs}
 }
 
+// Checks if bytes are valid json.
+// Probably a better way to this.
 func IsValidJson(b []byte) bool {
 
 	var objmap map[string]*json.RawMessage
@@ -97,32 +106,34 @@ func IsValidJson(b []byte) bool {
 	return err == nil
 }
 
+// Handles a transaction 
 func HandleTransaction(b []byte) {
-	fmt.Println("Converting JSON to Transaction...")
+	tracelog.Trace(TAG, "HandleTransaction", "Converting JSON to Transaction...")
 	t := TransactionFromJSON(b)
-	fmt.Println(t)
+	tracelog.Info(TAG, "HandleTransaction", t.String())
 }
 
-func main() {
+// Starts the main server.
+func RunServer() {
 	origin := "http://localhost/"
 	url := "wss://ws.blockchain.info:443/inv"
 	
 	// Connect
-	fmt.Printf("Connecting to %s...\n", url)
+	tracelog.Info(TAG, "RunServer", "Connecting to %s...\n", url)
 	ws, err := websocket.Dial(url, "", origin)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Connected!")
+	tracelog.Info(TAG, "RunServer", "Connected!")
 
 	// Subscribe
 	subscriptionMessage := "{\"op\":\"unconfirmed_sub\"}";
 	subscriptionBytes := []byte(subscriptionMessage)
-	fmt.Printf("Subscribing with %s...\n", subscriptionMessage)
+	tracelog.Info(TAG, "Subscribing with %s...\n", subscriptionMessage)
 	if _, err := ws.Write(subscriptionBytes); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Subscribed!")
+	tracelog.Info(TAG, "RunServer", "Subscribed!")
 	
 	jsonData := make([]byte, 0)
 	// Forever
@@ -130,7 +141,7 @@ func main() {
 		n := -1
 		buffer := make([]byte, 1024)
 		// Read
-		fmt.Println("Reading from socket...")
+		tracelog.Trace(TAG, "RunServer", "Reading from socket...")
 		if n, err = ws.Read(buffer); err != nil {
 			log.Fatal(err)
 		}
@@ -145,4 +156,12 @@ func main() {
 			jsonData = make([]byte, 0)
 		}
 	}
+}
+
+func main() {
+	tracelog.Start(tracelog.LevelInfo)
+	
+	RunServer()
+	
+	tracelog.Stop()
 }
