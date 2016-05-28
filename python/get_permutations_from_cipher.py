@@ -53,7 +53,11 @@ class CipherTranslator(object):
             self.cipher_map = self._get_cipher_map()
 
         # TODO do real stuff.
-        return len(self._get_mask_op_list())
+        masks = self._get_mask_op_list()
+        print ''
+        for m in masks:
+            print self.mask_to_str(m)
+        return len(masks)
 
     def _get_cipher_map(self):
         alphabet = string.ascii_lowercase
@@ -67,12 +71,45 @@ class CipherTranslator(object):
         return map
 
     def _get_mask_op_list(self):
-        """
-        TODO explain dis yo
-        1: 0
-        -------
-        2: 1
-        """
+        masks = set()
+        max_bit = len(self.s) - 1
+        max_num = 0
+        for i in range(max_bit):
+            max_num = max_num + (1 << i)
+
+        for num in range(max_num):
+            if self._validate_op_mask(num):
+                masks.add(num)
+
+        return masks
+
+    def _validate_op_mask(self, mask):
+        bits = self.get_bits(mask)
+        for i, b in enumerate(bits):
+            if i > 0 and b & bits[i - 1] == 1:
+                return False
+
+        return True
+
+    # Partially from http://stackoverflow.com/questions/8898807/pythonic-way-to-iterate-over-bits-of-integer
+    def get_bits(self, mask):
+        bit_list = []
+        bit = 1
+        while mask >= bit:
+            if mask & bit:
+                bit_list.append(1)
+            else:
+                bit_list.append(0)
+            bit <<= 1
+
+        return bit_list
+
+    def mask_to_str(self, mask):
+        return '{0}: {1}'.format(bin(mask).replace('0b', '')[::-1], mask)
+
+"""
+    def _get_mask_op_list(self):
+        # TODO: Explain dis yo
         all_masks = set()
         # Track identity masks seperately for dives down permutation tree.
         indentity_masks = []
@@ -121,8 +158,6 @@ class CipherTranslator(object):
         else:
             return masks_to_combine
 
-
-
     def _create_permutation_sets(self, s):
         perm_set = set()
 
@@ -141,8 +176,7 @@ class CipherTranslator(object):
                 if not error:
                     perm_set.append(translated_s)
 
-    def print_mask(self, mask):
-        print '{0}: {1}'.format(bin(mask).replace('0b', '')[::-1], mask)
+"""
 
 """
 Tests
@@ -160,12 +194,12 @@ class CipherTranslatorTest(unittest.TestCase):
             #[0, None, 0],
             #[1, '', 0],
             #[2, '0', 0],
-            #[3, '1', len(set(['a']))],
+            # [3, '1', len(set(['a']))],
             [4, '11', len(set(['aa', 'k']))],
-            [5, '111',len(set(['aaa', 'ak', 'ka']))],
-            # [6, '1111', len(set(['a', 'aaaa', 'kk', 'aka', 'kaa', 'aak']))],
-            [7, '11111', len(set(['aaaaa', 'akk', 'kak', 'kka', 'aakaa', 'kaaa', 'aaak']))],
-            [8, '111111', len(set(['aaaaaa', 'aaaak', 'kaaaa', 'aakaa', 'kkk', 'aakk', 'kkaa', 'kaak', 'akaaa', 'aaaka', 'akak', 'kaka']))],
+            # [5, '111',len(set(['aaa', 'ak', 'ka']))],  # gewd
+            # [6, '1111', len(set(['aaaa', 'kk', 'aka', 'kaa', 'aak']))],  # gewd
+            # [7, '11111', len(set(['aaaaa', 'akk', 'kak', 'kka', 'aakaa', 'kaaa', 'aaak']))],
+            # [8, '111111', len(set(['aaaaaa', 'aaaak', 'kaaaa', 'aakaa', 'kkk', 'aakk', 'kkaa', 'kaak', 'akaaa', 'aaaka', 'akak', 'kaka']))],
             #[9, '100', 0],
             #[10, '001', 0],
             #[12, '101', 0],
